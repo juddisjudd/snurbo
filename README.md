@@ -65,3 +65,10 @@ Recommended Ollama models:
 - `qwen2.5:7b` - Good alternative
 
 Change model in `.env` with `LLM=model_name`
+
+## TODO
+
+### Core Features
+- [ ] Implement local knowledge base retrieval for the bot to access and query stored data from.
+- [ ] Add web search functionality for compatible LLM models.
+
