@@ -11,7 +11,7 @@ export class ModelManager {
   private baseUrl: string;
 
   constructor(baseUrl: string = "http://localhost:11434") {
-    this.logger = new Logger({ service: "model-manager" });
+    this.logger = new Logger({ service: "snurbo", component: "model-manager" });
     this.baseUrl = baseUrl;
   }
 
@@ -53,6 +53,7 @@ export class ModelManager {
     ];
 
     const fallback = fallbacks.find((model) => availableNames.includes(model));
+
     if (fallback) {
       this.logger.warn("Preferred model not found, using fallback", {
         preferredModel,
@@ -85,6 +86,7 @@ export class ModelManager {
         body: JSON.stringify({ name: modelName }),
         signal: AbortSignal.timeout(5000),
       });
+
       return response.ok;
     } catch {
       return false;

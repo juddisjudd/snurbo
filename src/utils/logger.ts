@@ -1,9 +1,15 @@
-import pino from "pino";
+import {
+  configure,
+  getLogger,
+  getConsoleSink,
+  type Logger as LogTapeLogger,
+  type LogLevel,
+} from "@logtape/logtape";
 
 interface LoggerConfig {
-  level?: "debug" | "info" | "warn" | "error";
-  pretty?: boolean;
+  level?: LogLevel;
   service?: string;
+  component?: string;
 }
 
 function normalizeError(error: unknown): Error | object | string {
@@ -13,74 +19,93 @@ function normalizeError(error: unknown): Error | object | string {
 }
 
 export class Logger {
-  private logger: pino.Logger;
+  private logger: LogTapeLogger;
+  private category: string[];
 
   constructor(config: LoggerConfig = {}) {
-    const {
-      level = "info",
-      pretty = process.env.NODE_ENV !== "production",
-      service = "discord-bot",
-    } = config;
+    const { level = "info", service = "snurbo", component } = config;
 
-    if (pretty) {
-      this.logger = pino({
-        level,
-        name: service,
-        transport: {
-          target: "pino-pretty",
-          options: {
-            colorize: true,
-            translateTime: "HH:MM:ss",
-            ignore: "pid,hostname",
-            singleLine: true,
-            levelFirst: true,
-          },
+    this.category = component ? [service, component] : [service];
+
+    this.configureLogging(level);
+
+    this.logger = getLogger(this.category);
+  }
+
+  private configureLogging(level: LogLevel): void {
+    if (!Logger.isConfigured) {
+      const isDevelopment = process.env.NODE_ENV !== "production";
+
+      configure({
+        sinks: {
+          console: getConsoleSink(),
         },
+        loggers: [
+          {
+            category: ["snurbo"],
+            lowestLevel: level,
+            sinks: ["console"],
+          },
+        ],
       });
-    } else {
-      this.logger = pino({
-        level,
-        name: service,
-      });
+
+      Logger.isConfigured = true;
     }
   }
 
-  debug(message: string, meta?: object): void {
-    this.logger.debug(meta || {}, message);
+  private static isConfigured = false;
+
+  debug(message: string, meta?: Record<string, unknown>): void {
+    this.logger.debug(message, meta || {});
   }
 
-  info(message: string, meta?: object): void {
-    this.logger.info(meta || {}, message);
+  info(message: string, meta?: Record<string, unknown>): void {
+    this.logger.info(message, meta || {});
   }
 
-  warn(message: string, meta?: object): void {
-    this.logger.warn(meta || {}, message);
+  warn(message: string, meta?: Record<string, unknown>): void {
+    this.logger.warn(message, meta || {});
   }
 
-  error(message: string, error?: unknown, meta?: object): void {
+  error(
+    message: string,
+    error?: unknown,
+    meta?: Record<string, unknown>
+  ): void {
     const normalizedError = error ? normalizeError(error) : undefined;
-    const errorMeta =
-      normalizedError instanceof Error
-        ? {
-            error: {
-              message: normalizedError.message,
-              stack: normalizedError.stack,
-              name: normalizedError.name,
-            },
-          }
-        : normalizedError && typeof normalizedError === "object"
-        ? { error: normalizedError }
-        : normalizedError
-        ? { error: normalizedError }
-        : {};
 
-    this.logger.error({ ...errorMeta, ...meta }, message);
+    let errorMeta: Record<string, unknown> = {};
+
+    if (normalizedError instanceof Error) {
+      errorMeta = {
+        error: {
+          message: normalizedError.message,
+          stack: normalizedError.stack,
+          name: normalizedError.name,
+        },
+      };
+    } else if (normalizedError && typeof normalizedError === "object") {
+      errorMeta = { error: normalizedError };
+    } else if (normalizedError) {
+      errorMeta = { error: normalizedError };
+    }
+
+    const finalMeta = { ...errorMeta, ...(meta || {}) };
+
+    this.logger.error(message, finalMeta);
   }
 
-  child(bindings: object): Logger {
-    const childLogger = new Logger();
-    childLogger.logger = this.logger.child(bindings);
-    return childLogger;
+  child(bindings: { component?: string; service?: string }): Logger {
+    const newCategory = [...this.category];
+
+    if (bindings.component) {
+      newCategory.push(bindings.component);
+    }
+
+    return new Logger({
+      service: newCategory[0],
+      component: newCategory.slice(1).join(":"),
+    });
   }
 
   static create(config?: LoggerConfig): Logger {
@@ -89,6 +114,6 @@ export class Logger {
 }
 
 export const logger = Logger.create({
-  level: (process.env.LOG_LEVEL as any) || "info",
-  service: "snurbo-bot",
+  level: (process.env.LOG_LEVEL as LogLevel) || "info",
+  service: "snurbo",
 });

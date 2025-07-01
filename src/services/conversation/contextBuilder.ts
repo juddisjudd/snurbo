@@ -1,5 +1,6 @@
 import { ConversationContext, ConversationMessage } from "@/core/types";
 import { systemPrompts } from "@/config/prompts";
+import { DateCalculator } from "@/utils/dateCalculator";
 
 export class ContextBuilder {
   buildSystemPrompt(
@@ -7,6 +8,29 @@ export class ContextBuilder {
     requiresCode: boolean
   ): string {
     let prompt = systemPrompts.base;
+
+    const now = new Date();
+    const currentDateTime = {
+      date: now.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+      time: now.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZoneName: "short",
+      }),
+      timestamp: now.toISOString(),
+    };
+
+    prompt += `\n\nCurrent date and time: ${currentDateTime.date} at ${currentDateTime.time}`;
+    prompt += `\nToday is ${now.toLocaleDateString("en-US", {
+      weekday: "long",
+    })}.`;
+    prompt += `\nWhen calculating days between dates, always use the current date (${currentDateTime.date}) as your reference point.`;
+    prompt += `\nFor date calculations, be precise: if today is June 30th and someone asks about July 4th, that's exactly 4 days from now.`;
 
     const conversationContext = this.analyzeConversationContext(context);
     if (conversationContext) {
@@ -173,9 +197,16 @@ export class ContextBuilder {
       });
     }
 
+    const dateContext = DateCalculator.formatDateContext(currentMessage);
+    let enhancedMessage = currentMessage;
+
+    if (dateContext) {
+      enhancedMessage = `${currentMessage}\n\n[${dateContext}]`;
+    }
+
     messages.push({
       role: "user",
-      content: currentMessage,
+      content: enhancedMessage,
     });
 
     return messages;

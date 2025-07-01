@@ -20,11 +20,11 @@ export const config: BotConfig = {
   model: getEnvVar("LLM", "llama3.1:8b"),
   maxContextMessages: getEnvNumber("MAX_CONTEXT_MESSAGES", 10),
   responseChance: getEnvNumber("RESPONSE_CHANCE", 0.15),
-  maxRequestsPerMinute: getEnvNumber("MAX_REQUESTS_PER_MINUTE", 5),
+  maxRequestsPerMinute: getEnvNumber("MAX_REQUESTS_PER_MINUTE", 15),
 };
 
 export const responseConfig = {
   temperature: 0.7,
-  maxTokens: 150,
-  codeMaxTokens: 300,
+  maxTokens: 100,
+  codeMaxTokens: 250,
 };
